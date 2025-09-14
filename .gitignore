@@ -1,0 +1,36 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Test file
+test.html
+
+# Build/Package files
+*.zip
+*.crx
+*.pem
+
+# Node (if you add build tools later)
+node_modules/
+npm-debug.log*
+
+# Private keys or credentials
+*.key
+*.pem
+secrets.json
+config.local.js
+
+# Chrome extension development
+*.map

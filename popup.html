@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATStruggle Buster</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="logo">
+        <div class="logo-icon">AT</div>
+        <span>ATStruggle Buster</span>
+      </div>
+    </div>
+
+    <!-- Not Logged In State -->
+    <div id="loginSection" class="section">
+      <div class="welcome-message">
+        <h2>Welcome!</h2>
+        <p>Connect your ATStruggle Buster account to start matching your resume with job descriptions.</p>
+      </div>
+      
+      <!-- Simplified Connection Flow -->
+      <div class="connection-flow">
+        <button id="magicLinkBtn" class="btn btn-primary btn-large">
+          <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
+          </svg>
+          Connect Account
+        </button>
+        
+        <div class="connection-status" id="connectionStatus" style="display: none;">
+          <div class="spinner"></div>
+          <p>Connecting to your account...</p>
+          <p class="text-small">Complete sign-in in the browser tab that just opened</p>
+        </div>
+        
+        <div class="divider">
+          <span>or</span>
+        </div>
+        
+        <button id="signupBtn" class="btn btn-secondary">
+          Create New Account
+        </button>
+      </div>
+      
+      <!-- Manual API Key Entry (Hidden by default, shown on toggle) -->
+      <div class="advanced-section">
+        <button id="toggleAdvanced" class="advanced-toggle">
+          Advanced: Enter API Key Manually
+          <svg class="toggle-icon" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M6 8L2 4h8L6 8z"/>
+          </svg>
+        </button>
+        
+        <div id="advancedContent" class="advanced-content" style="display: none;">
+          <input type="password" id="apiKeyInput" placeholder="Paste your API key here">
+          <button id="connectBtn" class="btn btn-secondary">
+            Connect with API Key
+          </button>
+        </div>
+      </div>
+      
+      <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </div>
+
+    <!-- Logged In State -->
+    <div id="dashboardSection" class="section" style="display: none;">
+      <div class="user-info">
+        <div class="user-email" id="userEmail">user@example.com</div>
+        <button id="logoutBtn" class="logout-btn">Logout</button>
+      </div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="creditsCount">--</div>
+          <div class="stat-label">Credits Remaining</div>
+          <button id="buyCreditsBtn" class="btn btn-secondary btn-small">
+            Buy Credits
+          </button>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-value" id="evaluationsCount">--</div>
+          <div class="stat-label">Evaluations Today</div>
+        </div>
+      </div>
+      
+      <div class="quick-actions">
+        <h3>Quick Actions</h3>
+        <button id="viewHistoryBtn" class="action-item">
+          <span class="action-icon">📊</span>
+          <div>
+            <strong>View History</strong>
+            <p>See all your evaluations</p>
+          </div>
+        </button>
+        
+        <button id="updateResumeBtn" class="action-item">
+          <span class="action-icon">📄</span>
+          <div>
+            <strong>Update Resume</strong>
+            <p>Keep your resume current</p>
+          </div>
+        </button>
+        
+        <button id="helpBtn" class="action-item">
+          <span class="action-icon">❓</span>
+          <div>
+            <strong>Help & Tips</strong>
+            <p>How to use the extension</p>
+          </div>
+        </button>
+      </div>
+      
+      <div class="instructions">
+        <h4>How to Use:</h4>
+        <ol>
+          <li>Go to any job listing page</li>
+          <li>Select the job description text</li>
+          <li>Click the purple AT button that appears</li>
+          <li>View your instant match score!</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <a href="https://atstrugglebuster.com" target="_blank" class="footer-link">
+        Visit ATStruggle Buster
+      </a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
