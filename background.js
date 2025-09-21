@@ -110,6 +110,9 @@ async function authenticateWithWebapp() {
           // Get initial credits
           const credits = await getCredits();
           
+          // Pre-cache the resume to avoid first-run issues
+          setTimeout(() => preCacheResume(), 1000);
+          
           return { 
             success: true,
             email: data.email,
@@ -129,7 +132,7 @@ async function authenticateWithWebapp() {
   }
 }
 
-// Evaluate job description
+// Evaluate job description - ENHANCED VERSION WITH CACHING AND RETRIES
 async function evaluateJob(jobText) {
   try {
     const { apiKey } = await chrome.storage.sync.get(STORAGE_KEYS.API_KEY);
@@ -138,47 +141,108 @@ async function evaluateJob(jobText) {
       throw new Error('Please connect your account in the extension popup');
     }
     
-    // Fetch user's resume
-    const resumeResponse = await fetch(`${API_BASE_URL}/api/me/resume`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
+    // Check if we have cached resume first
+    const cachedData = await chrome.storage.local.get(['cachedResume', 'resumeCacheTime']);
+    const cacheAge = Date.now() - (cachedData.resumeCacheTime || 0);
+    const cacheValid = cacheAge < 3600000; // 1 hour cache
     
-    if (!resumeResponse.ok) {
-      if (resumeResponse.status === 401) {
-        await chrome.storage.sync.remove(STORAGE_KEYS.API_KEY);
-        throw new Error('Session expired. Please reconnect your account.');
+    let resume_text;
+    
+    if (cachedData.cachedResume && cacheValid) {
+      // Use cached resume
+      resume_text = cachedData.cachedResume;
+      console.log('Using cached resume');
+    } else {
+      // Fetch user's resume with retry logic
+      let retries = 3;
+      let resumeResponse;
+      
+      while (retries > 0) {
+        resumeResponse = await fetch(`${API_BASE_URL}/api/me/resume`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (resumeResponse.ok) {
+          break;
+        }
+        
+        if (resumeResponse.status === 401) {
+          // Clear invalid key and retry won't help
+          await chrome.storage.sync.remove(STORAGE_KEYS.API_KEY);
+          throw new Error('Session expired. Please reconnect your account.');
+        }
+        
+        retries--;
+        if (retries > 0) {
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * (3 - retries)));
+        }
       }
-      throw new Error('Unable to fetch your resume. Please ensure it is uploaded on the website.');
+      
+      if (!resumeResponse || !resumeResponse.ok) {
+        throw new Error('Unable to fetch your resume. Please ensure it is uploaded on the website.');
+      }
+      
+      const resumeData = await resumeResponse.json();
+      resume_text = resumeData.resume_text;
+      
+      // Cache the resume
+      await chrome.storage.local.set({
+        cachedResume: resume_text,
+        resumeCacheTime: Date.now()
+      });
+      console.log('Resume fetched and cached');
     }
     
-    const { resume_text } = await resumeResponse.json();
+    // Evaluate match with retry logic
+    let evalRetries = 2;
+    let response;
     
-    // Evaluate match
-    const response = await fetch(`${API_BASE_URL}/api/evaluate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        job_text: jobText,
-        candidate_text: resume_text
-      })
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        await chrome.storage.sync.remove(STORAGE_KEYS.API_KEY);
-        throw new Error('Invalid API key. Please reconnect your account.');
+    while (evalRetries > 0) {
+      response = await fetch(`${API_BASE_URL}/api/evaluate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          job_text: jobText,
+          candidate_text: resume_text
+        })
+      });
+      
+      if (response.ok) {
+        break;
       }
+      
+      // Handle specific error codes
+      if (response.status === 401) {
+        // Try to clear cache and retry once
+        if (evalRetries === 2) {
+          await chrome.storage.local.remove(['cachedResume', 'resumeCacheTime']);
+          await chrome.storage.sync.remove(STORAGE_KEYS.API_KEY);
+          throw new Error('Invalid API key. Please reconnect your account.');
+        }
+      }
+      
       if (response.status === 402) {
         throw new Error('No credits remaining. Please purchase more credits.');
       }
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Evaluation failed');
+      
+      evalRetries--;
+      if (evalRetries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    if (!response || !response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Evaluation failed. Please try again.');
     }
     
     const result = await response.json();
@@ -212,6 +276,33 @@ async function evaluateJob(jobText) {
   } catch (error) {
     console.error('Evaluation error:', error);
     throw error;
+  }
+}
+
+// Pre-cache resume when user connects
+async function preCacheResume() {
+  try {
+    const { apiKey } = await chrome.storage.sync.get(STORAGE_KEYS.API_KEY);
+    if (!apiKey) return;
+    
+    const response = await fetch(`${API_BASE_URL}/api/me/resume`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      const { resume_text } = await response.json();
+      await chrome.storage.local.set({
+        cachedResume: resume_text,
+        resumeCacheTime: Date.now()
+      });
+      console.log('Resume pre-cached successfully');
+    }
+  } catch (error) {
+    console.error('Pre-cache error:', error);
   }
 }
 
@@ -274,7 +365,7 @@ async function updateCredits() {
   }
 }
 
-// Validate API key (manual entry fallback)
+// Validate API key (manual entry fallback) - ENHANCED
 async function validateApiKey(apiKey) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/me/credits`, {
@@ -302,6 +393,9 @@ async function validateApiKey(apiKey) {
     await chrome.storage.local.set({
       [STORAGE_KEYS.CREDITS]: data.credits
     });
+    
+    // Pre-cache the resume after successful validation
+    setTimeout(() => preCacheResume(), 1000);
     
     return { 
       success: true, 
